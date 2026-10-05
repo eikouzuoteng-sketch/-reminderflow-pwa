@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7fb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ReminderFlow">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+  <title>ReminderFlow</title>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div>
+        <h1>ReminderFlow</h1>
+        <p id="todayLabel" class="muted"></p>
+      </div>
+      <button id="addTaskTop" class="primary round" aria-label="タスク追加">＋</button>
+    </header>
+
+    <main>
+      <section id="view-today" class="view active">
+        <div class="segmented" id="taskFilter">
+          <button data-filter="today" class="active">今日</button>
+          <button data-filter="upcoming">今後</button>
+          <button data-filter="overdue">期限切れ</button>
+          <button data-filter="all">すべて</button>
+        </div>
+        <div id="taskList" class="task-list"></div>
+        <div id="emptyTasks" class="empty hidden">表示するタスクはありません。</div>
+      </section>
+
+      <section id="view-calendar" class="view">
+        <div class="calendar-header">
+          <button id="prevMonth" class="ghost">‹</button>
+          <h2 id="monthLabel"></h2>
+          <button id="nextMonth" class="ghost">›</button>
+        </div>
+        <div class="weekdays"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <h3 id="selectedDateLabel" class="section-title"></h3>
+        <div id="calendarTaskList" class="task-list"></div>
+      </section>
+
+      <section id="view-repeat" class="view">
+        <div class="section-head"><h2>繰り返し設定</h2><button id="addRepeat" class="primary">追加</button></div>
+        <div id="repeatList" class="card-list"></div>
+        <div id="emptyRepeat" class="empty hidden">繰り返し設定はありません。</div>
+      </section>
+
+      <section id="view-settings" class="view">
+        <h2>設定</h2>
+        <div class="settings-card">
+          <label class="row-label"><span>既定の優先度</span>
+            <select id="defaultPriority"><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select>
+          </label>
+          <label class="row-label"><span>期限切れ自動整理</span><input id="autoMaintenance" type="checkbox"></label>
+        </div>
+
+        <h3>通知</h3>
+        <div class="settings-card">
+          <div class="notice warning">
+            このPWAは再署名不要です。ただしiOSでは、アプリを閉じた状態の時刻指定通知にはWeb Push用サーバーが必要です。現在のローカル版は、アプリが開いている間の通知確認と通知ルール保存に対応します。
+          </div>
+          <button id="requestNotify" class="secondary full">通知を許可</button>
+          <p id="notifyStatus" class="muted small"></p>
+        </div>
+
+        <h3>データ</h3>
+        <div class="settings-card stack">
+          <button id="exportData" class="secondary full">バックアップを書き出す</button>
+          <label class="secondary full file-label">バックアップを読み込む<input id="importData" type="file" accept="application/json"></label>
+          <button id="clearCompleted" class="secondary full">完了済みを削除</button>
+        </div>
+
+        <h3>この版について</h3>
+        <div class="settings-card small">
+          <p><strong>ReminderFlow PWA v0.2.1</strong></p>
+          <p>ホーム画面追加後は通常のアプリに近い形で利用できます。タスクデータはこの端末のブラウザ領域に保存されます。</p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button data-view="today" class="active"><span>✓</span><small>タスク</small></button>
+      <button data-view="calendar"><span>▦</span><small>カレンダー</small></button>
+      <button data-view="repeat"><span>↻</span><small>繰り返し</small></button>
+      <button data-view="settings"><span>⚙</span><small>設定</small></button>
+    </nav>
+  </div>
+
+  <dialog id="taskDialog">
+    <form id="taskForm" method="dialog">
+      <div class="dialog-head"><h2 id="taskDialogTitle">タスクを追加</h2><button type="button" class="ghost" data-close="taskDialog">×</button></div>
+      <input id="taskId" type="hidden">
+      <label>タイトル<input id="taskTitle" required maxlength="100" placeholder="例：レポート提出"></label>
+      <label>メモ<textarea id="taskNote" rows="3" maxlength="500" placeholder="任意"></textarea></label>
+      <div class="two-col">
+        <label>期限日<input id="taskDate" type="date" required></label>
+        <label>期限時刻<input id="taskTime" type="time" value="18:00"></label>
+      </div>
+      <label>優先度<select id="taskPriority"><option value="">未指定（既定値）</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></label>
+      <fieldset>
+        <legend>通知ルール</legend>
+        <label class="check"><input id="notifyAtDeadline" type="checkbox"> 期限時刻に通知</label>
+        <label class="check"><input id="notifyBeforeEnabled" type="checkbox"> 期限前に通知</label>
+        <div class="inline"><input id="notifyBeforeValue" type="number" min="1" max="365" value="1"><span>日前</span></div>
+        <label class="check"><input id="dailyNotifyEnabled" type="checkbox"> 未完了なら毎日通知</label>
+        <div class="inline"><input id="dailyNotifyTime" type="time" value="20:00"></div>
+        <label class="check"><input id="thresholdNotifyEnabled" type="checkbox"> 残り期限が指定日数以下なら通知</label>
+        <div class="inline"><input id="thresholdDays" type="number" min="0" max="365" value="1"><span>日以下・</span><input id="thresholdTime" type="time" value="20:00"></div>
+      </fieldset>
+      <div class="dialog-actions"><button type="button" class="secondary" data-close="taskDialog">キャンセル</button><button class="primary" value="save">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="repeatDialog">
+    <form id="repeatForm" method="dialog">
+      <div class="dialog-head"><h2 id="repeatDialogTitle">繰り返しを追加</h2><button type="button" class="ghost" data-close="repeatDialog">×</button></div>
+      <input id="repeatId" type="hidden">
+      <label>タイトル<input id="repeatTitle" required maxlength="100"></label>
+      <label>メモ<textarea id="repeatNote" rows="2" maxlength="500"></textarea></label>
+      <div class="two-col"><label>開始日<input id="repeatStart" type="date" required></label><label>終了日<input id="repeatEnd" type="date"></label></div>
+      <div class="two-col"><label>繰り返し単位<select id="repeatUnit"><option value="day">日</option><option value="week">週</option><option value="month">月</option></select></label><label>間隔<input id="repeatInterval" type="number" min="1" max="365" value="1"></label></div>
+      <div id="weekdayPicker" class="weekday-picker hidden">
+        <span>曜日</span>
+        <label><input type="checkbox" value="0">日</label><label><input type="checkbox" value="1">月</label><label><input type="checkbox" value="2">火</label><label><input type="checkbox" value="3">水</label><label><input type="checkbox" value="4">木</label><label><input type="checkbox" value="5">金</label><label><input type="checkbox" value="6">土</label>
+      </div>
+      <fieldset><legend>各回の期限</legend><div class="two-col"><label>発生から<input id="dueOffsetDays" type="number" min="0" max="365" value="0"></label><label>日後 <input id="repeatDueTime" type="time" value="18:00"></label></div></fieldset>
+      <label>優先度<select id="repeatPriority"><option value="">未指定（既定値）</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option></select></label>
+      <label class="check"><input id="deleteExpired" type="checkbox"> 期限を過ぎた未完了回を自動削除</label>
+      <label class="check"><input id="repeatNotifyDeadline" type="checkbox"> 各回の期限時刻に通知</label>
+      <label class="check"><input id="repeatNotifyBefore" type="checkbox"> 各回の期限 <input id="repeatNotifyBeforeDays" type="number" min="1" max="365" value="1" class="short"> 日前に通知</label>
+      <div class="dialog-actions"><button type="button" class="secondary" data-close="repeatDialog">キャンセル</button><button class="primary" value="save">保存</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
